@@ -8,6 +8,7 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 class GatewayClient {
     async request(endpoint, options = {}) {
         const url = `${GATEWAY_URL}${endpoint}`;
+        console.log(`[GatewayClient] Requesting: ${url}`);
         const headers = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${ADMIN_TOKEN}`,
