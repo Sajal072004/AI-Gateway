@@ -75,6 +75,7 @@ class GatewayClient {
     async regenerateUserToken(userId) {
         return this.request(`/admin/api/users/${userId}/regenerate-token`, {
             method: 'POST',
+            body: JSON.stringify({}),
         });
     }
 
