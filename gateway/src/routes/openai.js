@@ -68,8 +68,8 @@ export async function registerOpenAIRoutes(fastify) {
                 // mapped models: 'gemini-1.5-flash' -> cheap, 'gemini-1.5-pro' -> premium
                 let requestedTierFromBody = null;
                 if (requestedModel) {
-                    if (requestedModel.includes('flash')) requestedTierFromBody = 'cheap';
-                    else if (requestedModel.includes('pro')) requestedTierFromBody = 'premium';
+                    if (requestedModel === 'cheap' || requestedModel.includes('flash')) requestedTierFromBody = 'cheap';
+                    else if (requestedModel === 'premium' || requestedModel.includes('pro')) requestedTierFromBody = 'premium';
                     else if (requestedModel === 'auto') requestedTierFromBody = 'auto'; // allow explicit 'auto' model
                 }
 
