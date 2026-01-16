@@ -202,6 +202,38 @@ export async function registerAdminRoutes(fastify) {
     });
 
     /**
+     * POST /admin/api/users/:userId/regenerate-token
+     * Regenerate user's authentication token
+     */
+    fastify.post('/admin/api/users/:userId/regenerate-token', {
+        preHandler: authenticateAdmin,
+        handler: async (request, reply) => {
+            const { userId } = request.params;
+            const { generateUserToken } = await import('../utils/tokenGenerator.js');
+
+            // Generate new token
+            const newToken = generateUserToken();
+
+            // Update user with new token
+            const userPolicy = await UserPolicy.findOneAndUpdate(
+                { userId },
+                { token: newToken, updatedAt: new Date() },
+                { new: true }
+            );
+
+            if (!userPolicy) {
+                return reply.code(404).send({ error: 'User not found' });
+            }
+
+            return reply.send({
+                userPolicy: userPolicy.toObject(),
+                message: 'Token regenerated successfully',
+                oldTokenInvalidated: true
+            });
+        },
+    });
+
+    /**
      * GET /admin/api/usage
      * Get aggregated usage
      */

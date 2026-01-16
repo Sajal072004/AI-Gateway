@@ -8,6 +8,15 @@ export default function UsersPage() {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingUser, setEditingUser] = useState(null);
+    const [showAddUser, setShowAddUser] = useState(false);
+    const [newUser, setNewUser] = useState({
+        userId: '',
+        allowedTiers: ['cheap'],
+        defaultTier: 'cheap',
+        dailyTokenLimit: { cheap: 100000, premium: 0 },
+        monthlyTokenLimit: { cheap: 3000000, premium: 0 },
+    });
+    const [copiedToken, setCopiedToken] = useState(null);
 
     useEffect(() => {
         fetchUsers();
@@ -46,6 +55,66 @@ export default function UsersPage() {
         }
     };
 
+    const handleAddUser = async () => {
+        try {
+            const res = await fetch('/api/gateway/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newUser),
+            });
+            const data = await res.json();
+            alert(`User created! Token: ${data.userPolicy.token}\n\nCopy this token now - it won't be shown again!`);
+            setShowAddUser(false);
+            setNewUser({
+                userId: '',
+                allowedTiers: ['cheap'],
+                defaultTier: 'cheap',
+                dailyTokenLimit: { cheap: 100000, premium: 0 },
+                monthlyTokenLimit: { cheap: 3000000, premium: 0 },
+            });
+            fetchUsers();
+        } catch (error) {
+            console.error('Error creating user:', error);
+            alert('Error creating user');
+        }
+    };
+
+    const handleDeleteUser = async (userId) => {
+        if (!confirm(`Are you sure you want to delete user "${userId}"? This cannot be undone.`)) {
+            return;
+        }
+        try {
+            await fetch(`/api/gateway/users?userId=${userId}&deleteUsageData=true`, {
+                method: 'DELETE',
+            });
+            fetchUsers();
+        } catch (error) {
+            console.error('Error deleting user:', error);
+        }
+    };
+
+    const handleRegenerateToken = async (userId) => {
+        if (!confirm(`Regenerate token for "${userId}"? The old token will be invalidated immediately.`)) {
+            return;
+        }
+        try {
+            const res = await fetch(`/api/gateway/users/${userId}/regenerate-token`, {
+                method: 'POST',
+            });
+            const data = await res.json();
+            alert(`New token generated!\n\n${data.userPolicy.token}\n\nCopy this now - the old token is now invalid!`);
+            fetchUsers();
+        } catch (error) {
+            console.error('Error regenerating token:', error);
+        }
+    };
+
+    const copyToken = (token, userId) => {
+        navigator.clipboard.writeText(token);
+        setCopiedToken(userId);
+        setTimeout(() => setCopiedToken(null), 2000);
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-100">
@@ -61,18 +130,158 @@ export default function UsersPage() {
         <div className="min-h-screen bg-gray-100">
             <Nav />
             <div className="container mx-auto px-4 py-8">
-                <h1 className="text-3xl font-bold mb-8">User Management</h1>
+                <div className="flex justify-between items-center mb-8">
+                    <h1 className="text-3xl font-bold">User Management</h1>
+                    <button
+                        onClick={() => setShowAddUser(!showAddUser)}
+                        className="px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-semibold"
+                    >
+                        {showAddUser ? 'Cancel' : '+ Add User'}
+                    </button>
+                </div>
+
+                {showAddUser && (
+                    <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                        <h2 className="text-xl font-bold mb-4">Create New User</h2>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-2">User ID</label>
+                                <input
+                                    type="text"
+                                    value={newUser.userId}
+                                    onChange={(e) => setNewUser({ ...newUser, userId: e.target.value })}
+                                    className="w-full px-3 py-2 border rounded-md"
+                                    placeholder="e.g., developer_john"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Allowed Tiers</label>
+                                <div className="space-x-4">
+                                    <label className="inline-flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={newUser.allowedTiers.includes('cheap')}
+                                            onChange={(e) => {
+                                                const tiers = e.target.checked
+                                                    ? [...newUser.allowedTiers, 'cheap']
+                                                    : newUser.allowedTiers.filter(t => t !== 'cheap');
+                                                setNewUser({ ...newUser, allowedTiers: tiers });
+                                            }}
+                                            className="mr-2"
+                                        />
+                                        Cheap
+                                    </label>
+                                    <label className="inline-flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={newUser.allowedTiers.includes('premium')}
+                                            onChange={(e) => {
+                                                const tiers = e.target.checked
+                                                    ? [...newUser.allowedTiers, 'premium']
+                                                    : newUser.allowedTiers.filter(t => t !== 'premium');
+                                                setNewUser({ ...newUser, allowedTiers: tiers });
+                                            }}
+                                            className="mr-2"
+                                        />
+                                        Premium
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Default Tier</label>
+                                <select
+                                    value={newUser.defaultTier}
+                                    onChange={(e) => setNewUser({ ...newUser, defaultTier: e.target.value })}
+                                    className="w-full px-3 py-2 border rounded-md"
+                                >
+                                    <option value="cheap">Cheap</option>
+                                    <option value="premium">Premium</option>
+                                    <option value="auto">Auto</option>
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Daily Token Limit (Cheap)</label>
+                                    <input
+                                        type="number"
+                                        value={newUser.dailyTokenLimit.cheap}
+                                        onChange={(e) => setNewUser({
+                                            ...newUser,
+                                            dailyTokenLimit: { ...newUser.dailyTokenLimit, cheap: parseInt(e.target.value) }
+                                        })}
+                                        className="w-full px-3 py-2 border rounded-md"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Daily Token Limit (Premium)</label>
+                                    <input
+                                        type="number"
+                                        value={newUser.dailyTokenLimit.premium}
+                                        onChange={(e) => setNewUser({
+                                            ...newUser,
+                                            dailyTokenLimit: { ...newUser.dailyTokenLimit, premium: parseInt(e.target.value) }
+                                        })}
+                                        className="w-full px-3 py-2 border rounded-md"
+                                    />
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleAddUser}
+                                disabled={!newUser.userId}
+                                className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400"
+                            >
+                                Create User
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {users.map((user) => (
                     <div key={user.policy.userId} className="bg-white rounded-lg shadow-md p-6 mb-6">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-xl font-bold">{user.policy.userId}</h2>
-                            <button
-                                onClick={() => handleEdit(user)}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                            >
-                                Edit
-                            </button>
+                            <div className="space-x-2">
+                                <button
+                                    onClick={() => handleEdit(user)}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                >
+                                    Edit
+                                </button>
+                                <button
+                                    onClick={() => handleRegenerateToken(user.policy.userId)}
+                                    className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700"
+                                >
+                                    🔄 Regenerate Token
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteUser(user.policy.userId)}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Token Display */}
+                        <div className="mb-4 p-3 bg-gray-50 rounded border">
+                            <div className="flex justify-between items-center">
+                                <div className="flex-1">
+                                    <span className="text-sm font-medium text-gray-600">Token:</span>
+                                    <code className="ml-2 text-sm font-mono bg-gray-200 px-2 py-1 rounded">
+                                        {user.policy.token}
+                                    </code>
+                                </div>
+                                <button
+                                    onClick={() => copyToken(user.policy.token, user.policy.userId)}
+                                    className="ml-4 px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
+                                >
+                                    {copiedToken === user.policy.userId ? '✓ Copied!' : '📋 Copy'}
+                                </button>
+                            </div>
                         </div>
 
                         {editingUser && editingUser.userId === user.policy.userId ? (
