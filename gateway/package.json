@@ -1,0 +1,24 @@
+{
+  "name": "ai-hybrid-gateway",
+  "version": "1.0.0",
+  "description": "AI Gateway with tiered routing and usage tracking",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js"
+  },
+  "keywords": ["ai", "gateway", "gemini", "usage-tracking"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.2.0",
+    "mongoose": "^8.9.3",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "zod": "^3.24.1",
+    "date-fns-tz": "^3.2.0"
+  }
+}
