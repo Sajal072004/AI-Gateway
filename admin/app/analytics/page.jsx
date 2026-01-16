@@ -54,9 +54,9 @@ export default function AnalyticsPage() {
     // Calculate statistics
     const stats = {
         totalRequests: filteredLogs.length,
-        successfulRequests: filteredLogs.filter(l => l.status === 'success').length,
-        failedRequests: filteredLogs.filter(l => l.status === 'error').length,
-        totalTokens: filteredLogs.reduce((sum, l) => sum + (l.usage?.totalTokens || 0), 0),
+        successfulRequests: filteredLogs.filter(l => l.status === 'ok').length,
+        failedRequests: filteredLogs.filter(l => l.status === 'error' || l.status === 'limited').length,
+        totalTokens: filteredLogs.reduce((sum, l) => sum + (l.totalTokens || 0), 0),
         cheapRequests: filteredLogs.filter(l => l.tierUsed === 'cheap').length,
         premiumRequests: filteredLogs.filter(l => l.tierUsed === 'premium').length,
         avgLatency: filteredLogs.length > 0
@@ -77,10 +77,10 @@ export default function AnalyticsPage() {
             };
         }
         userBreakdown[log.userId].requests++;
-        userBreakdown[log.userId].tokens += log.usage?.totalTokens || 0;
+        userBreakdown[log.userId].tokens += log.totalTokens || 0;
         if (log.tierUsed === 'cheap') userBreakdown[log.userId].cheap++;
         if (log.tierUsed === 'premium') userBreakdown[log.userId].premium++;
-        if (log.status === 'error') userBreakdown[log.userId].errors++;
+        if (log.status === 'error' || log.status === 'limited') userBreakdown[log.userId].errors++;
     });
 
     // Hourly breakdown for today
@@ -100,7 +100,7 @@ export default function AnalyticsPage() {
             modelBreakdown[model] = { count: 0, tokens: 0 };
         }
         modelBreakdown[model].count++;
-        modelBreakdown[model].tokens += log.usage?.totalTokens || 0;
+        modelBreakdown[model].tokens += log.totalTokens || 0;
     });
 
     // Routing reason breakdown
@@ -350,21 +350,21 @@ export default function AnalyticsPage() {
                                         <td className="py-2 px-2 font-medium">{log.userId}</td>
                                         <td className="py-2 px-2">
                                             <span className={`px-2 py-1 rounded text-xs ${log.tierUsed === 'cheap'
-                                                    ? 'bg-blue-100 text-blue-800'
-                                                    : 'bg-purple-100 text-purple-800'
+                                                ? 'bg-blue-100 text-blue-800'
+                                                : 'bg-purple-100 text-purple-800'
                                                 }`}>
                                                 {log.tierUsed}
                                             </span>
                                         </td>
                                         <td className="py-2 px-2 text-xs">{log.model}</td>
                                         <td className="py-2 px-2 text-right">
-                                            {log.usage?.totalTokens || 0}
+                                            {log.totalTokens || 0}
                                         </td>
                                         <td className="py-2 px-2 text-right">{log.latencyMs}ms</td>
                                         <td className="py-2 px-2">
-                                            <span className={`px-2 py-1 rounded text-xs ${log.status === 'success'
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : 'bg-red-100 text-red-800'
+                                            <span className={`px-2 py-1 rounded text-xs ${log.status === 'ok'
+                                                ? 'bg-green-100 text-green-800'
+                                                : 'bg-red-100 text-red-800'
                                                 }`}>
                                                 {log.status}
                                             </span>
