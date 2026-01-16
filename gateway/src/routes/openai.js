@@ -194,6 +194,9 @@ export async function registerOpenAIRoutes(fastify) {
                 // Update tokens
                 await updateTokens(userId, tierUsed, day, month, providerResult.usage);
 
+                // Check if streaming is requested
+                const isStreaming = request.body.stream === true;
+
                 // Log success
                 const latencyMs = Date.now() - startTime;
                 await RequestLog.create({
@@ -211,7 +214,57 @@ export async function registerOpenAIRoutes(fastify) {
                     errorMessage: null,
                 });
 
-                // Format response as OpenAI
+                if (isStreaming) {
+                    reply.raw.writeHead(200, {
+                        'Content-Type': 'text/event-stream',
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive',
+                        'Access-Control-Allow-Origin': '*',
+                    });
+
+                    // Chunk 1: Content
+                    const chunk1 = {
+                        id: `chatcmpl-${requestId}`,
+                        object: 'chat.completion.chunk',
+                        created: Math.floor(Date.now() / 1000),
+                        model: usedModel,
+                        system_fingerprint: routingReason,
+                        choices: [
+                            {
+                                index: 0,
+                                delta: { role: 'assistant', content: providerResult.output },
+                                finish_reason: null,
+                            },
+                        ],
+                    };
+                    reply.raw.write(`data: ${JSON.stringify(chunk1)}\n\n`);
+
+                    // Chunk 2: Usage & Finish Reason
+                    const chunk2 = {
+                        id: `chatcmpl-${requestId}`,
+                        object: 'chat.completion.chunk',
+                        created: Math.floor(Date.now() / 1000),
+                        model: usedModel,
+                        choices: [
+                            {
+                                index: 0,
+                                delta: {},
+                                finish_reason: 'stop',
+                            },
+                        ],
+                        usage: {
+                            prompt_tokens: providerResult.usage.promptTokens,
+                            completion_tokens: providerResult.usage.completionTokens,
+                            total_tokens: providerResult.usage.totalTokens,
+                        },
+                    };
+                    reply.raw.write(`data: ${JSON.stringify(chunk2)}\n\n`);
+                    reply.raw.write('data: [DONE]\n\n');
+                    reply.raw.end();
+                    return;
+                }
+
+                // Format response as OpenAI (Non-streaming)
                 return reply.send({
                     id: `chatcmpl-${requestId}`,
                     object: 'chat.completion',
