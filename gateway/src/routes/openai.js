@@ -125,29 +125,58 @@ export async function registerOpenAIRoutes(fastify) {
                 );
 
                 if (!limitCheck.allowed) {
-                    // Log limited
-                    const latencyMs = Date.now() - startTime;
-                    await RequestLog.create({
-                        ts: new Date(),
-                        day, month, requestId, userId,
-                        tierRequested: requestedTierFromBody || 'default',
-                        tierUsed, routingReason,
-                        status: 'limited',
-                        latencyMs, promptChars,
-                        promptTokens: 0, completionTokens: 0, totalTokens: 0,
-                        estimatedTokens: true,
-                        model: config.gemini.models[tierUsed],
-                        errorMessage: limitCheck.error.message,
-                    });
+                    // Start Fallback Logic
+                    let fallbackSuccess = false;
 
-                    return reply.code(429).send({
-                        error: {
-                            message: limitCheck.error.message,
-                            type: 'rate_limit_error',
-                            param: null,
-                            code: 'rate_limit_exceeded'
+                    // Try fallback to cheap if allowed and config enabled
+                    if (
+                        tierUsed === 'premium' &&
+                        config.routing.fallbackToCheapOnPremiumError &&
+                        userPolicy.allowedTiers.includes('cheap')
+                    ) {
+                        // Check limits for cheap tier
+                        const cheapLimitCheck = await checkLimits(
+                            userId,
+                            'cheap',
+                            estimatedPromptTokens,
+                            day,
+                            month,
+                            userPolicy,
+                            systemPolicy
+                        );
+
+                        if (cheapLimitCheck.allowed) {
+                            tierUsed = 'cheap';
+                            routingReason = 'fallback_rate_limit';
+                            fallbackSuccess = true;
                         }
-                    });
+                    }
+
+                    if (!fallbackSuccess) {
+                        // Log limited
+                        const latencyMs = Date.now() - startTime;
+                        await RequestLog.create({
+                            ts: new Date(),
+                            day, month, requestId, userId,
+                            tierRequested: requestedTierFromBody || 'default',
+                            tierUsed, routingReason,
+                            status: 'limited',
+                            latencyMs, promptChars,
+                            promptTokens: 0, completionTokens: 0, totalTokens: 0,
+                            estimatedTokens: true,
+                            model: config.gemini.models[tierUsed],
+                            errorMessage: limitCheck.error.message,
+                        });
+
+                        return reply.code(429).send({
+                            error: {
+                                message: limitCheck.error.message,
+                                type: 'rate_limit_error',
+                                param: null,
+                                code: 'rate_limit_exceeded'
+                            }
+                        });
+                    }
                 }
 
                 // Reserve request
