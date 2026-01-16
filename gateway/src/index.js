@@ -3,6 +3,7 @@ import { config } from './env.js';
 import { connectDatabase, closeDatabase } from './db/mongo.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerAdminRoutes } from './routes/admin.js';
+import { registerOpenAIRoutes } from './routes/openai.js';
 
 const fastify = Fastify({
     logger: {
@@ -22,6 +23,7 @@ await connectDatabase();
 // Register routes
 await registerChatRoutes(fastify);
 await registerAdminRoutes(fastify);
+await registerOpenAIRoutes(fastify);
 
 // Health check
 fastify.get('/health', async (request, reply) => {
