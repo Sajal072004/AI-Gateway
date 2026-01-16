@@ -24,7 +24,7 @@ export default function UsersPage() {
 
     const fetchUsers = async () => {
         try {
-            const res = await fetch('/api/gateway/users');
+            const res = await fetch('/api/gateway/users', { cache: 'no-store' });
             const data = await res.json();
             setUsers(data.users);
         } catch (error) {
