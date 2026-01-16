@@ -102,57 +102,94 @@ export default function UsersPage() {
     };
 
     const handleDeleteUser = async (userId) => {
-        if (!confirm(`Are you sure you want to delete user "${userId}"? This cannot be undone.`)) {
-            return;
-        }
-        try {
-            await fetch(`/api/gateway/users?userId=${userId}&deleteUsageData=true`, {
-                method: 'DELETE',
-            });
-            toast.success('User deleted successfully');
-            fetchUsers();
-        } catch (error) {
-            console.error('Error deleting user:', error);
-            toast.error('Failed to delete user');
-        }
+        toast((t) => (
+            <div>
+                <p className="font-bold text-red-600 mb-2">Delete user "{userId}"?</p>
+                <div className="flex gap-2">
+                    <button
+                        onClick={async () => {
+                            toast.dismiss(t.id);
+                            try {
+                                await fetch(`/api/gateway/users?userId=${userId}&deleteUsageData=true`, {
+                                    method: 'DELETE',
+                                });
+                                toast.success('User deleted successfully');
+                                fetchUsers();
+                            } catch (error) {
+                                console.error('Error deleting user:', error);
+                                toast.error('Failed to delete user');
+                            }
+                        }}
+                        className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                    >
+                        Yes, Delete
+                    </button>
+                    <button
+                        onClick={() => toast.dismiss(t.id)}
+                        className="bg-gray-200 text-gray-800 px-3 py-1 rounded text-sm hover:bg-gray-300"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        ), { duration: 5000 });
     };
 
     const handleRegenerateToken = async (userId) => {
-        if (!confirm(`Regenerate token for "${userId}"? The old token will be invalidated immediately.`)) {
-            return;
-        }
-        try {
-            const res = await fetch(`/api/gateway/users/${userId}/regenerate-token`, {
-                method: 'POST',
-            });
-            const data = await res.json();
+        toast((t) => (
+            <div>
+                <p className="font-bold mb-2">Regenerate token for "{userId}"?</p>
+                <p className="text-sm text-gray-600 mb-3">Old token will be invalid.</p>
+                <div className="flex gap-2">
+                    <button
+                        onClick={async () => {
+                            toast.dismiss(t.id);
+                            try {
+                                const res = await fetch(`/api/gateway/users/${userId}/regenerate-token`, {
+                                    method: 'POST',
+                                });
+                                const data = await res.json();
 
-            if (data.error) throw new Error(data.error);
+                                if (data.error) throw new Error(data.error);
 
-            toast.success(
-                (t) => (
-                    <div>
-                        <p className="font-bold">New Token Generated!</p>
-                        <p className="text-sm mt-1 mb-2 break-all font-mono bg-gray-50 p-1 rounded border">{data.userPolicy.token}</p>
-                        <button
-                            onClick={() => {
-                                navigator.clipboard.writeText(data.userPolicy.token);
-                                toast.success('Copied!');
-                            }}
-                            className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded w-full hover:bg-blue-200"
-                        >
-                            Click to Copy
-                        </button>
-                    </div>
-                ),
-                { duration: 10000, style: { minWidth: '350px' } }
-            );
+                                toast.success(
+                                    (t2) => (
+                                        <div>
+                                            <p className="font-bold">New Token Generated!</p>
+                                            <p className="text-sm mt-1 mb-2 break-all font-mono bg-gray-50 p-1 rounded border">{data.userPolicy.token}</p>
+                                            <button
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(data.userPolicy.token);
+                                                    toast.success('Copied!');
+                                                }}
+                                                className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded w-full hover:bg-blue-200"
+                                            >
+                                                Click to Copy
+                                            </button>
+                                        </div>
+                                    ),
+                                    { duration: 10000, style: { minWidth: '350px' } }
+                                );
 
-            fetchUsers();
-        } catch (error) {
-            console.error('Error regenerating token:', error);
-            toast.error(error.message || 'Error regenerating token');
-        }
+                                fetchUsers();
+                            } catch (error) {
+                                console.error('Error regenerating token:', error);
+                                toast.error(error.message || 'Error regenerating token');
+                            }
+                        }}
+                        className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                    >
+                        Confirm
+                    </button>
+                    <button
+                        onClick={() => toast.dismiss(t.id)}
+                        className="bg-gray-200 text-gray-800 px-3 py-1 rounded text-sm hover:bg-gray-300"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        ), { duration: 5000 });
     };
 
     const copyToken = (token, userId) => {
