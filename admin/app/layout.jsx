@@ -5,10 +5,15 @@ export const metadata = {
     description: 'Admin dashboard for AI Hybrid Gateway',
 };
 
+import { Toaster } from 'react-hot-toast';
+
 export default function RootLayout({ children }) {
     return (
         <html lang="en">
-            <body>{children}</body>
+            <body>
+                {children}
+                <Toaster position="bottom-right" />
+            </body>
         </html>
     );
 }

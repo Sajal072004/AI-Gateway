@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Nav from '@/components/Nav';
 import ProgressBar from '@/components/ProgressBar';
+import { toast } from 'react-hot-toast';
 
 export default function UsersPage() {
     const [users, setUsers] = useState([]);
@@ -63,7 +64,28 @@ export default function UsersPage() {
                 body: JSON.stringify(newUser),
             });
             const data = await res.json();
-            alert(`User created! Token: ${data.userPolicy.token}\n\nCopy this token now - it won't be shown again!`);
+
+            if (data.error) throw new Error(data.error);
+
+            toast.success(
+                (t) => (
+                    <div>
+                        <p className="font-bold">User created!</p>
+                        <p className="text-sm mt-1 mb-2">Token: <code className="bg-gray-100 px-1">{data.userPolicy.token}</code></p>
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(data.userPolicy.token);
+                                toast.success('Copied!');
+                            }}
+                            className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded"
+                        >
+                            Copy Token
+                        </button>
+                    </div>
+                ),
+                { duration: 10000 }
+            );
+
             setShowAddUser(false);
             setNewUser({
                 userId: '',
@@ -75,7 +97,7 @@ export default function UsersPage() {
             fetchUsers();
         } catch (error) {
             console.error('Error creating user:', error);
-            alert('Error creating user');
+            toast.error(error.message || 'Error creating user');
         }
     };
 
@@ -87,9 +109,11 @@ export default function UsersPage() {
             await fetch(`/api/gateway/users?userId=${userId}&deleteUsageData=true`, {
                 method: 'DELETE',
             });
+            toast.success('User deleted successfully');
             fetchUsers();
         } catch (error) {
             console.error('Error deleting user:', error);
+            toast.error('Failed to delete user');
         }
     };
 
@@ -102,16 +126,39 @@ export default function UsersPage() {
                 method: 'POST',
             });
             const data = await res.json();
-            alert(`New token generated!\n\n${data.userPolicy.token}\n\nCopy this now - the old token is now invalid!`);
+
+            if (data.error) throw new Error(data.error);
+
+            toast.success(
+                (t) => (
+                    <div>
+                        <p className="font-bold">New Token Generated!</p>
+                        <p className="text-sm mt-1 mb-2 break-all font-mono bg-gray-50 p-1 rounded border">{data.userPolicy.token}</p>
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(data.userPolicy.token);
+                                toast.success('Copied!');
+                            }}
+                            className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded w-full hover:bg-blue-200"
+                        >
+                            Click to Copy
+                        </button>
+                    </div>
+                ),
+                { duration: 10000, style: { minWidth: '350px' } }
+            );
+
             fetchUsers();
         } catch (error) {
             console.error('Error regenerating token:', error);
+            toast.error(error.message || 'Error regenerating token');
         }
     };
 
     const copyToken = (token, userId) => {
         navigator.clipboard.writeText(token);
         setCopiedToken(userId);
+        toast.success('Token copied to clipboard!');
         setTimeout(() => setCopiedToken(null), 2000);
     };
 

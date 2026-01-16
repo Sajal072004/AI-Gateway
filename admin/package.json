@@ -10,11 +10,12 @@
         "lint": "next lint"
     },
     "dependencies": {
+        "date-fns": "^4.1.0",
+        "iron-session": "^8.0.3",
         "next": "^15.1.6",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
-        "iron-session": "^8.0.3",
-        "date-fns": "^4.1.0"
+        "react-hot-toast": "^2.6.0"
     },
     "devDependencies": {
         "autoprefixer": "^10.4.20",
