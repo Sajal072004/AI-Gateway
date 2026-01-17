@@ -22,15 +22,17 @@ export async function registerAdminRoutes(fastify) {
             const day = getCurrentDay();
             const month = getCurrentMonth();
 
-            // Get global usage for both tiers
+            // Get global usage for all tiers
             const globalUsage = {
                 day: {
                     cheap: await getGlobalUsage('day', day, 'cheap'),
                     premium: await getGlobalUsage('day', day, 'premium'),
+                    qwen: await getGlobalUsage('day', day, 'qwen'),
                 },
                 month: {
                     cheap: await getGlobalUsage('month', month, 'cheap'),
                     premium: await getGlobalUsage('month', month, 'premium'),
+                    qwen: await getGlobalUsage('month', month, 'qwen'),
                 },
             };
 
@@ -79,10 +81,12 @@ export async function registerAdminRoutes(fastify) {
                         day: {
                             cheap: await getUserUsage('day', day, policy.userId, 'cheap'),
                             premium: await getUserUsage('day', day, policy.userId, 'premium'),
+                            qwen: await getUserUsage('day', day, policy.userId, 'qwen'),
                         },
                         month: {
                             cheap: await getUserUsage('month', month, policy.userId, 'cheap'),
                             premium: await getUserUsage('month', month, policy.userId, 'premium'),
+                            qwen: await getUserUsage('month', month, policy.userId, 'qwen'),
                         },
                     };
 
@@ -91,10 +95,12 @@ export async function registerAdminRoutes(fastify) {
                         day: {
                             cheap: calculateStatus(usage.day.cheap.totalTokens, policy.dailyTokenLimit.cheap, systemPolicy),
                             premium: calculateStatus(usage.day.premium.totalTokens, policy.dailyTokenLimit.premium, systemPolicy),
+                            qwen: calculateStatus(usage.day.qwen.totalTokens, policy.dailyTokenLimit.qwen, systemPolicy),
                         },
                         month: {
                             cheap: calculateStatus(usage.month.cheap.totalTokens, policy.monthlyTokenLimit.cheap, systemPolicy),
                             premium: calculateStatus(usage.month.premium.totalTokens, policy.monthlyTokenLimit.premium, systemPolicy),
+                            qwen: calculateStatus(usage.month.qwen.totalTokens, policy.monthlyTokenLimit.qwen, systemPolicy),
                         },
                     };
 
