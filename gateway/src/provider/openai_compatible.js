@@ -27,7 +27,18 @@ export async function callOpenAICompatible(messages, model) {
         if (isVertex) {
             // Raw Vertex AI Prediction format requires 'prompt' field for this container
             // We need to format messages into a single string (Qwen ChatML format)
-            const prompt = messages.map(m => {
+
+            // Check if there's a system message, if not add one
+            const hasSystem = messages.some(m => m.role === 'system');
+            let messagesToFormat = [...messages];
+            if (!hasSystem) {
+                messagesToFormat.unshift({
+                    role: 'system',
+                    content: 'You are an intelligent agentic AI assistant. You are helpful, precise, and expert in coding tasks. Follow user instructions carefully.'
+                });
+            }
+
+            const prompt = messagesToFormat.map(m => {
                 let role = m.role;
                 if (role === 'user') role = 'user';
                 if (role === 'assistant') role = 'assistant';
@@ -83,9 +94,21 @@ export async function callOpenAICompatible(messages, model) {
                 // prediction structure varies by container. 
                 // Common: prediction or prediction.content or prediction.output
                 const pred = data.predictions[0];
-                output = typeof pred === 'string' ? pred : (pred.content || pred.output || JSON.stringify(pred));
-                // Try to find usage
-                // Sometimes in metadata?
+                let rawOutput = typeof pred === 'string' ? pred : (pred.content || pred.output || JSON.stringify(pred));
+
+                // Fix for Qwen deployment which returns "Prompt: ... Output: ..." string
+                if (rawOutput.includes('Output:\n')) {
+                    const parts = rawOutput.split('Output:\n');
+                    // Return the last part to handle cases where "Output:" might be in the prompt text itself (rare but possible)
+                    // But usually, the structure is rigid. Let's take the part after the last "Output:\n"
+                    if (parts.length > 1) {
+                        output = parts[parts.length - 1];
+                    } else {
+                        output = rawOutput;
+                    }
+                } else {
+                    output = rawOutput;
+                }
             }
         } else {
             // Standard OpenAI
