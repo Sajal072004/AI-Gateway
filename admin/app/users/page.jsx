@@ -414,7 +414,7 @@ export default function UsersPage() {
                 )}
 
                 {/* Users Table */}
-                <div className="glass-card" style={{ padding: '0', overflow: 'hidden' }} className="animate-fade-in">
+                <div className="glass-card animate-fade-in" style={{ padding: '0', overflow: 'hidden' }}>
                     <div style={{ overflowX: 'auto' }}>
                         <table>
                             <thead>

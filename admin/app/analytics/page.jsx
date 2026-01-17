@@ -114,7 +114,7 @@ export default function AnalyticsPage() {
                 </div>
 
                 {/* Tier Distribution */}
-                <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem' }} className="animate-fade-in">
+                <div className="glass-card animate-fade-in" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
                     <h3 style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '1rem' }}>
                         Requests by Tier
                     </h3>
@@ -135,7 +135,7 @@ export default function AnalyticsPage() {
                 </div>
 
                 {/* Filters */}
-                <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem' }} className="animate-fade-in">
+                <div className="glass-card animate-fade-in" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
                     <h3 style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '1rem' }}>
                         Filters
                     </h3>
@@ -189,7 +189,7 @@ export default function AnalyticsPage() {
                 </div>
 
                 {/* Logs Table */}
-                <div className="glass-card" style={{ padding: '0', overflow: 'hidden' }} className="animate-fade-in">
+                <div className="glass-card animate-fade-in" style={{ padding: '0', overflow: 'hidden' }}>
                     <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-subtle)' }}>
                         <h3 style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-primary)' }}>
                             Request Logs ({filteredLogs.length})

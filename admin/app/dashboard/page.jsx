@@ -226,7 +226,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Global Limits Section */}
-                <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem' }} className="animate-fade-in">
+                <div className="glass-card animate-fade-in" style={{ padding: '2rem', marginBottom: '2rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                         <div>
                             <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--text-primary)' }}>
@@ -426,7 +426,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Users Table */}
-                <div className="glass-card" style={{ padding: '2rem' }} className="animate-fade-in">
+                <div className="glass-card animate-fade-in" style={{ padding: '2rem' }}>
                     <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '1.5rem' }}>
                         Users Overview
                     </h2>
