@@ -16,6 +16,8 @@ const envSchema = z.object({
   AUTO_PREMIUM_IF_CHARS_OVER: z.string().default('500'),
   AUTO_PREMIUM_KEYWORDS: z.string().default('analyze,complex,detailed,comprehensive,advanced,research,technical,professional'),
   FALLBACK_TO_CHEAP_ON_PREMIUM_ERROR: z.string().default('true'),
+  SELF_HOSTED_URL: z.string().optional(),
+  SELF_HOSTED_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -52,5 +54,10 @@ export const config = {
     autoPremiumIfCharsOver: parseInt(env.AUTO_PREMIUM_IF_CHARS_OVER, 10),
     autoPremiumIfContains: env.AUTO_PREMIUM_KEYWORDS.split(',').map(k => k.trim().toLowerCase()),
     fallbackToCheapOnPremiumError: env.FALLBACK_TO_CHEAP_ON_PREMIUM_ERROR === 'true',
+  },
+  selfHosted: {
+    url: env.SELF_HOSTED_URL,
+    key: env.SELF_HOSTED_KEY,
+    model: 'qwen-2.5-7b', // Default/Internal name
   },
 };

@@ -40,6 +40,11 @@ export function resolveAutoTier(messages) {
  * Validate tier is allowed for user, downgrade if necessary
  */
 export function validateAndDowngrade(tier, userPolicy) {
+    // Allow self-hosted/qwen tier if premium is allowed (treat as premium feature)
+    if ((tier === 'qwen' || tier === 'self-hosted') && userPolicy.allowedTiers.includes('premium')) {
+        return { tierUsed: tier, routingReason: null };
+    }
+
     if (userPolicy.allowedTiers.includes(tier)) {
         return { tierUsed: tier, routingReason: null };
     }

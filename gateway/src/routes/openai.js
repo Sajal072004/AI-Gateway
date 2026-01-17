@@ -5,6 +5,7 @@ import { RequestLog } from '../db/models/RequestLog.js';
 import { determineRequestedTier, resolveAutoTier, validateAndDowngrade } from '../policy/routing.js';
 import { checkLimits, reserveRequest, updateTokens } from '../policy/limits.js';
 import { callGemini, estimatePromptTokens } from '../provider/gemini.js';
+import { callOpenAICompatible } from '../provider/openai_compatible.js';
 import { getCurrentDay, getCurrentMonth } from '../utils/time.js';
 import { generateRequestId } from '../utils/requestId.js';
 import { config } from '../env.js';
@@ -70,6 +71,7 @@ export async function registerOpenAIRoutes(fastify) {
                 if (requestedModel) {
                     if (requestedModel === 'cheap' || requestedModel.includes('flash')) requestedTierFromBody = 'cheap';
                     else if (requestedModel === 'premium' || requestedModel.includes('pro')) requestedTierFromBody = 'premium';
+                    else if (requestedModel === 'qwen' || requestedModel.includes('qwen') || requestedModel === 'self-hosted') requestedTierFromBody = 'qwen';
                     else if (requestedModel === 'auto') requestedTierFromBody = 'auto'; // allow explicit 'auto' model
                 }
 
@@ -109,6 +111,9 @@ export async function registerOpenAIRoutes(fastify) {
                 if (validationResult.routingReason) {
                     routingReason = validationResult.routingReason;
                 }
+
+                // Determine model to use
+                const usedModel = (tierUsed === 'qwen' || tierUsed === 'self-hosted') ? (config.selfHosted.model || 'qwen-2.5-7b') : config.gemini.models[tierUsed];
 
                 // Check limits
                 const promptChars = messages.map(m => m.content || '').join('').length;
@@ -164,7 +169,7 @@ export async function registerOpenAIRoutes(fastify) {
                             latencyMs, promptChars,
                             promptTokens: 0, completionTokens: 0, totalTokens: 0,
                             estimatedTokens: true,
-                            model: config.gemini.models[tierUsed],
+                            model: usedModel,
                             errorMessage: limitCheck.error.message,
                         });
 
@@ -185,10 +190,14 @@ export async function registerOpenAIRoutes(fastify) {
                 // Call Provider
                 let providerResult;
                 let providerError = null;
-                const usedModel = config.gemini.models[tierUsed];
+                // usedModel variable is defined earlier
 
                 try {
-                    providerResult = await callGemini(tierUsed, messages, usedModel);
+                    if (tierUsed === 'qwen' || tierUsed === 'self-hosted') {
+                        providerResult = await callOpenAICompatible(messages, usedModel);
+                    } else {
+                        providerResult = await callGemini(tierUsed, messages, usedModel);
+                    }
                 } catch (error) {
                     providerError = error;
                     // Fallback logic could go here similar to chat.js
