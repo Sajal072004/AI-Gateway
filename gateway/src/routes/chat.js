@@ -116,7 +116,7 @@ export async function registerChatRoutes(fastify) {
                         completionTokens: 0,
                         totalTokens: 0,
                         estimatedTokens: true,
-                        model: config.gemini.models[tierUsed],
+                        model: tierUsed === 'qwen' ? config.gemini.models.premium : config.gemini.models[tierUsed],
                         errorMessage: limitCheck.error.message,
                     });
 
@@ -129,10 +129,16 @@ export async function registerChatRoutes(fastify) {
                 // Call provider
                 let providerResult;
                 let providerError = null;
-                const model = config.gemini.models[tierUsed];
+                // TEMPORARY: qwen tier uses Gemini Pro until DeepSeek Coder V2 deployment
+                const model = tierUsed === 'qwen' ? config.gemini.models.premium : config.gemini.models[tierUsed];
 
                 try {
-                    providerResult = await callGemini(tierUsed, messages, model);
+                    // TEMPORARY: Using Gemini 2.5 Pro for qwen tier until DeepSeek Coder V2 is deployed
+                    if (tierUsed === 'qwen') {
+                        providerResult = await callGemini('premium', messages, model);
+                    } else {
+                        providerResult = await callGemini(tierUsed, messages, model);
+                    }
                 } catch (error) {
                     providerError = error;
 

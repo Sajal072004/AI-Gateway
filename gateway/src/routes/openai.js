@@ -113,7 +113,10 @@ export async function registerOpenAIRoutes(fastify) {
                 }
 
                 // Determine model to use
-                const usedModel = (tierUsed === 'qwen' || tierUsed === 'self-hosted') ? (config.selfHosted.model || 'qwen-2.5-7b') : config.gemini.models[tierUsed];
+                // TEMPORARY: qwen tier uses Gemini Pro until DeepSeek Coder V2 deployment
+                const usedModel = tierUsed === 'qwen' ? config.gemini.models.premium :
+                    tierUsed === 'self-hosted' ? (config.selfHosted.model || 'qwen-2.5-7b') :
+                        config.gemini.models[tierUsed];
 
                 // Check limits
                 const promptChars = messages.map(m => m.content || '').join('').length;
@@ -193,7 +196,11 @@ export async function registerOpenAIRoutes(fastify) {
                 // usedModel variable is defined earlier
 
                 try {
-                    if (tierUsed === 'qwen' || tierUsed === 'self-hosted') {
+                    // TEMPORARY: Using Gemini 2.5 Pro for qwen tier until DeepSeek Coder V2 is deployed
+                    // Qwen 2.5 7B was producing poor quality responses for code understanding tasks
+                    if (tierUsed === 'qwen') {
+                        providerResult = await callGemini('premium', messages, config.gemini.models.premium);
+                    } else if (tierUsed === 'self-hosted') {
                         providerResult = await callOpenAICompatible(messages, usedModel);
                     } else {
                         providerResult = await callGemini(tierUsed, messages, usedModel);
