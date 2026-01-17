@@ -10,18 +10,22 @@ const systemPolicySchema = new mongoose.Schema({
     globalDailyTokenLimit: {
         cheap: { type: Number, required: true, default: 0 },
         premium: { type: Number, required: true, default: 0 },
+        qwen: { type: Number, required: true, default: 0 },
     },
     globalMonthlyTokenLimit: {
         cheap: { type: Number, required: true, default: 0 },
         premium: { type: Number, required: true, default: 0 },
+        qwen: { type: Number, required: true, default: 0 },
     },
     globalDailyRequestLimit: {
         cheap: { type: Number, required: true, default: 0 },
         premium: { type: Number, required: true, default: 0 },
+        qwen: { type: Number, required: true, default: 0 },
     },
     globalMonthlyRequestLimit: {
         cheap: { type: Number, required: true, default: 0 },
         premium: { type: Number, required: true, default: 0 },
+        qwen: { type: Number, required: true, default: 0 },
     },
     warningThresholdPct: {
         type: Number,

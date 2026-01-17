@@ -15,28 +15,32 @@ const userPolicySchema = new mongoose.Schema({
     allowedTiers: {
         type: [String],
         required: true,
-        enum: ['cheap', 'premium'],
+        enum: ['cheap', 'premium', 'qwen'],
     },
     defaultTier: {
         type: String,
         required: true,
-        enum: ['cheap', 'premium', 'auto'],
+        enum: ['cheap', 'premium', 'qwen', 'auto'],
     },
     dailyTokenLimit: {
         cheap: { type: Number, required: true, default: 0 },
         premium: { type: Number, required: true, default: 0 },
+        qwen: { type: Number, required: true, default: 0 },
     },
     monthlyTokenLimit: {
         cheap: { type: Number, required: true, default: 0 },
         premium: { type: Number, required: true, default: 0 },
+        qwen: { type: Number, required: true, default: 0 },
     },
     dailyRequestLimit: {
         cheap: { type: Number, required: true, default: 0 },
         premium: { type: Number, required: true, default: 0 },
+        qwen: { type: Number, required: true, default: 0 },
     },
     monthlyRequestLimit: {
         cheap: { type: Number, required: true, default: 0 },
         premium: { type: Number, required: true, default: 0 },
+        qwen: { type: Number, required: true, default: 0 },
     },
     createdAt: {
         type: Date,

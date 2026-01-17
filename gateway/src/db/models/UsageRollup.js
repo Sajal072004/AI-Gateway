@@ -22,7 +22,7 @@ const usageRollupSchema = new mongoose.Schema({
     tier: {
         type: String,
         required: true,
-        enum: ['cheap', 'premium'],
+        enum: ['cheap', 'premium', 'qwen'],
     },
     requests: {
         type: Number,
