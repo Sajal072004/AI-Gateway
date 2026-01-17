@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Nav from '@/components/Nav';
-import ProgressBar from '@/components/ProgressBar';
 import { toast } from 'react-hot-toast';
 
 export default function UsersPage() {
@@ -14,10 +13,11 @@ export default function UsersPage() {
         userId: '',
         allowedTiers: ['cheap'],
         defaultTier: 'cheap',
-        dailyTokenLimit: { cheap: 100000, premium: 0 },
-        monthlyTokenLimit: { cheap: 3000000, premium: 0 },
+        dailyTokenLimit: { cheap: 100000, premium: 0, qwen: 0 },
+        monthlyTokenLimit: { cheap: 3000000, premium: 0, qwen: 0 },
+        dailyRequestLimit: { cheap: 0, premium: 0, qwen: 0 },
+        monthlyRequestLimit: { cheap: 0, premium: 0, qwen: 0 },
     });
-    const [copiedToken, setCopiedToken] = useState(null);
 
     useEffect(() => {
         fetchUsers();
@@ -30,6 +30,7 @@ export default function UsersPage() {
             setUsers(data.users);
         } catch (error) {
             console.error('Error fetching users:', error);
+            toast.error('Failed to load users');
         } finally {
             setLoading(false);
         }
@@ -39,20 +40,29 @@ export default function UsersPage() {
         setEditingUser({
             userId: user.policy.userId,
             ...user.policy,
+            dailyTokenLimit: { cheap: 0, premium: 0, qwen: 0, ...user.policy.dailyTokenLimit },
+            monthlyTokenLimit: { cheap: 0, premium: 0, qwen: 0, ...user.policy.monthlyTokenLimit },
+            dailyRequestLimit: { cheap: 0, premium: 0, qwen: 0, ...user.policy.dailyRequestLimit },
+            monthlyRequestLimit: { cheap: 0, premium: 0, qwen: 0, ...user.policy.monthlyRequestLimit },
         });
     };
 
     const handleSave = async () => {
         try {
-            await fetch('/api/gateway/users', {
+            const res = await fetch('/api/gateway/users', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(editingUser),
             });
+
+            if (!res.ok) throw new Error('Failed to update user');
+
             setEditingUser(null);
-            fetchUsers();
+            await fetchUsers();
+            toast.success('User updated successfully');
         } catch (error) {
             console.error('Error updating user:', error);
+            toast.error('Failed to update user');
         }
     };
 
@@ -70,14 +80,17 @@ export default function UsersPage() {
             toast.success(
                 (t) => (
                     <div>
-                        <p className="font-bold">User created!</p>
-                        <p className="text-sm mt-1 mb-2">Token: <code className="bg-gray-100 px-1">{data.userPolicy.token}</code></p>
+                        <p style={{ fontWeight: '700', marginBottom: '0.5rem' }}>User created!</p>
+                        <p style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>
+                            Token: <code style={{ background: 'var(--bg-elevated)', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>{data.userPolicy.token}</code>
+                        </p>
                         <button
                             onClick={() => {
                                 navigator.clipboard.writeText(data.userPolicy.token);
-                                toast.success('Copied!');
+                                toast.success('Token copied!');
                             }}
-                            className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded"
+                            className="btn btn-primary"
+                            style={{ fontSize: '0.75rem', padding: '0.5rem 1rem' }}
                         >
                             Copy Token
                         </button>
@@ -91,439 +104,390 @@ export default function UsersPage() {
                 userId: '',
                 allowedTiers: ['cheap'],
                 defaultTier: 'cheap',
-                dailyTokenLimit: { cheap: 100000, premium: 0 },
-                monthlyTokenLimit: { cheap: 3000000, premium: 0 },
+                dailyTokenLimit: { cheap: 100000, premium: 0, qwen: 0 },
+                monthlyTokenLimit: { cheap: 3000000, premium: 0, qwen: 0 },
+                dailyRequestLimit: { cheap: 0, premium: 0, qwen: 0 },
+                monthlyRequestLimit: { cheap: 0, premium: 0, qwen: 0 },
             });
-            fetchUsers();
+            await fetchUsers();
         } catch (error) {
             console.error('Error creating user:', error);
-            toast.error(error.message || 'Error creating user');
+            toast.error(error.message || 'Failed to create user');
         }
     };
 
-    const handleDeleteUser = async (userId) => {
-        toast((t) => (
-            <div>
-                <p className="font-bold text-red-600 mb-2">Delete user "{userId}"?</p>
-                <div className="flex gap-2">
-                    <button
-                        onClick={async () => {
-                            toast.dismiss(t.id);
-                            try {
-                                await fetch(`/api/gateway/users?userId=${userId}&deleteUsageData=true`, {
-                                    method: 'DELETE',
-                                });
-                                toast.success('User deleted successfully');
-                                fetchUsers();
-                            } catch (error) {
-                                console.error('Error deleting user:', error);
-                                toast.error('Failed to delete user');
-                            }
-                        }}
-                        className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
-                    >
-                        Yes, Delete
-                    </button>
-                    <button
-                        onClick={() => toast.dismiss(t.id)}
-                        className="bg-gray-200 text-gray-800 px-3 py-1 rounded text-sm hover:bg-gray-300"
-                    >
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        ), { duration: 5000 });
+    const handleDelete = async (userId) => {
+        if (!confirm(`Delete user ${userId}? This cannot be undone.`)) return;
+
+        try {
+            const res = await fetch('/api/gateway/users', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId }),
+            });
+
+            if (!res.ok) throw new Error('Failed to delete user');
+
+            await fetchUsers();
+            toast.success('User deleted');
+        } catch (error) {
+            console.error('Error deleting user:', error);
+            toast.error('Failed to delete user');
+        }
     };
 
-    const handleRegenerateToken = async (userId) => {
-        toast((t) => (
-            <div>
-                <p className="font-bold mb-2">Regenerate token for "{userId}"?</p>
-                <p className="text-sm text-gray-600 mb-3">Old token will be invalid.</p>
-                <div className="flex gap-2">
-                    <button
-                        onClick={async () => {
-                            toast.dismiss(t.id);
-                            try {
-                                const res = await fetch(`/api/gateway/users/${userId}/regenerate-token`, {
-                                    method: 'POST',
-                                });
-                                const data = await res.json();
-
-                                if (data.error) throw new Error(data.error);
-
-                                toast.success(
-                                    (t2) => (
-                                        <div>
-                                            <p className="font-bold">New Token Generated!</p>
-                                            <p className="text-sm mt-1 mb-2 break-all font-mono bg-gray-50 p-1 rounded border">{data.userPolicy.token}</p>
-                                            <button
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(data.userPolicy.token);
-                                                    toast.success('Copied!');
-                                                }}
-                                                className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded w-full hover:bg-blue-200"
-                                            >
-                                                Click to Copy
-                                            </button>
-                                        </div>
-                                    ),
-                                    { duration: 10000, style: { minWidth: '350px' } }
-                                );
-
-                                fetchUsers();
-                            } catch (error) {
-                                console.error('Error regenerating token:', error);
-                                toast.error(error.message || 'Error regenerating token');
-                            }
-                        }}
-                        className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                    >
-                        Confirm
-                    </button>
-                    <button
-                        onClick={() => toast.dismiss(t.id)}
-                        className="bg-gray-200 text-gray-800 px-3 py-1 rounded text-sm hover:bg-gray-300"
-                    >
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        ), { duration: 5000 });
-    };
-
-    const copyToken = (token, userId) => {
+    const copyToken = (token) => {
         navigator.clipboard.writeText(token);
-        setCopiedToken(userId);
-        toast.success('Token copied to clipboard!');
-        setTimeout(() => setCopiedToken(null), 2000);
+        toast.success('Token copied to clipboard');
     };
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-100">
+            <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
                 <Nav />
-                <div className="container mx-auto px-4 py-8">
-                    <div className="text-center">Loading...</div>
+                <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+                    <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }} className="animate-pulse">
+                        Loading users...
+                    </div>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-100">
+        <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
             <Nav />
-            <div className="container mx-auto px-4 py-8">
-                <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-bold">User Management</h1>
+            <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                    <div>
+                        <h1 style={{ fontSize: '2.5rem', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                            Users
+                        </h1>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                            Manage user access and limits
+                        </p>
+                    </div>
                     <button
-                        onClick={() => setShowAddUser(!showAddUser)}
-                        className="px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-semibold"
+                        onClick={() => setShowAddUser(true)}
+                        className="btn btn-primary"
                     >
-                        {showAddUser ? 'Cancel' : '+ Add User'}
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        Add User
                     </button>
                 </div>
 
+                {/* Add User Modal */}
                 {showAddUser && (
-                    <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                        <h2 className="text-xl font-bold mb-4">Create New User</h2>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-2">User ID</label>
-                                <input
-                                    type="text"
-                                    value={newUser.userId}
-                                    onChange={(e) => setNewUser({ ...newUser, userId: e.target.value })}
-                                    className="w-full px-3 py-2 border rounded-md"
-                                    placeholder="e.g., developer_john"
-                                />
-                            </div>
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '1rem' }}>
+                        <div className="glass-card" style={{ padding: '2rem', maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>
+                                Add New User
+                            </h2>
 
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Allowed Tiers</label>
-                                <div className="space-x-4">
-                                    <label className="inline-flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={newUser.allowedTiers.includes('cheap')}
-                                            onChange={(e) => {
-                                                const tiers = e.target.checked
-                                                    ? [...newUser.allowedTiers, 'cheap']
-                                                    : newUser.allowedTiers.filter(t => t !== 'cheap');
-                                                setNewUser({ ...newUser, allowedTiers: tiers });
-                                            }}
-                                            className="mr-2"
-                                        />
-                                        Cheap
-                                    </label>
-                                    <label className="inline-flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={newUser.allowedTiers.includes('premium')}
-                                            onChange={(e) => {
-                                                const tiers = e.target.checked
-                                                    ? [...newUser.allowedTiers, 'premium']
-                                                    : newUser.allowedTiers.filter(t => t !== 'premium');
-                                                setNewUser({ ...newUser, allowedTiers: tiers });
-                                            }}
-                                            className="mr-2"
-                                        />
-                                        Premium
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Default Tier</label>
-                                <select
-                                    value={newUser.defaultTier}
-                                    onChange={(e) => setNewUser({ ...newUser, defaultTier: e.target.value })}
-                                    className="w-full px-3 py-2 border rounded-md"
-                                >
-                                    <option value="cheap">Cheap</option>
-                                    <option value="premium">Premium</option>
-                                    <option value="auto">Auto</option>
-                                </select>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Daily Token Limit (Cheap)</label>
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                                        User ID
+                                    </label>
                                     <input
-                                        type="number"
-                                        value={newUser.dailyTokenLimit.cheap}
-                                        onChange={(e) => setNewUser({
-                                            ...newUser,
-                                            dailyTokenLimit: { ...newUser.dailyTokenLimit, cheap: parseInt(e.target.value) }
-                                        })}
-                                        className="w-full px-3 py-2 border rounded-md"
+                                        type="text"
+                                        value={newUser.userId}
+                                        onChange={(e) => setNewUser({ ...newUser, userId: e.target.value })}
+                                        placeholder="e.g., user@example.com"
                                     />
                                 </div>
+
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Daily Token Limit (Premium)</label>
-                                    <input
-                                        type="number"
-                                        value={newUser.dailyTokenLimit.premium}
-                                        onChange={(e) => setNewUser({
-                                            ...newUser,
-                                            dailyTokenLimit: { ...newUser.dailyTokenLimit, premium: parseInt(e.target.value) }
-                                        })}
-                                        className="w-full px-3 py-2 border rounded-md"
-                                    />
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                                        Allowed Tiers
+                                    </label>
+                                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                        {['cheap', 'premium', 'qwen'].map(tier => (
+                                            <label key={tier} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={newUser.allowedTiers.includes(tier)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setNewUser({ ...newUser, allowedTiers: [...newUser.allowedTiers, tier] });
+                                                        } else {
+                                                            setNewUser({ ...newUser, allowedTiers: newUser.allowedTiers.filter(t => t !== tier) });
+                                                        }
+                                                    }}
+                                                    style={{ width: 'auto' }}
+                                                />
+                                                <span className={`badge badge-${tier}`}>{tier}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                                        Default Tier
+                                    </label>
+                                    <select
+                                        value={newUser.defaultTier}
+                                        onChange={(e) => setNewUser({ ...newUser, defaultTier: e.target.value })}
+                                    >
+                                        <option value="auto">Auto</option>
+                                        <option value="cheap">Cheap</option>
+                                        <option value="premium">Premium</option>
+                                        <option value="qwen">Qwen</option>
+                                    </select>
+                                </div>
+
+                                {/* Limits for each tier */}
+                                {['cheap', 'premium', 'qwen'].map(tier => (
+                                    <div key={tier} style={{ background: 'var(--bg-surface)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                                        <h3 className={`badge badge-${tier}`} style={{ marginBottom: '1rem' }}>{tier} Limits</h3>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '0.25rem' }}>Daily Tokens</label>
+                                                <input
+                                                    type="number"
+                                                    value={newUser.dailyTokenLimit[tier]}
+                                                    onChange={(e) => setNewUser({
+                                                        ...newUser,
+                                                        dailyTokenLimit: { ...newUser.dailyTokenLimit, [tier]: parseInt(e.target.value) || 0 }
+                                                    })}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '0.25rem' }}>Monthly Tokens</label>
+                                                <input
+                                                    type="number"
+                                                    value={newUser.monthlyTokenLimit[tier]}
+                                                    onChange={(e) => setNewUser({
+                                                        ...newUser,
+                                                        monthlyTokenLimit: { ...newUser.monthlyTokenLimit, [tier]: parseInt(e.target.value) || 0 }
+                                                    })}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                                    <button
+                                        onClick={() => setShowAddUser(false)}
+                                        className="btn btn-secondary"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleAddUser}
+                                        className="btn btn-primary"
+                                        disabled={!newUser.userId}
+                                    >
+                                        Create User
+                                    </button>
                                 </div>
                             </div>
-
-                            <button
-                                onClick={handleAddUser}
-                                disabled={!newUser.userId}
-                                className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400"
-                            >
-                                Create User
-                            </button>
                         </div>
                     </div>
                 )}
 
-                {users.map((user) => (
-                    <div key={user.policy.userId} className="bg-white rounded-lg shadow-md p-6 mb-6">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-bold">{user.policy.userId}</h2>
-                            <div className="space-x-2">
-                                <button
-                                    onClick={() => handleEdit(user)}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                                >
-                                    Edit
-                                </button>
-                                <button
-                                    onClick={() => handleRegenerateToken(user.policy.userId)}
-                                    className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700"
-                                >
-                                    🔄 Regenerate Token
-                                </button>
-                                <button
-                                    onClick={() => handleDeleteUser(user.policy.userId)}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                                >
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
+                {/* Edit User Modal */}
+                {editingUser && (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '1rem' }}>
+                        <div className="glass-card" style={{ padding: '2rem', maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>
+                                Edit User: {editingUser.userId}
+                            </h2>
 
-                        {/* Token Display */}
-                        <div className="mb-4 p-3 bg-gray-50 rounded border">
-                            <div className="flex justify-between items-center">
-                                <div className="flex-1">
-                                    <span className="text-sm font-medium text-gray-600">Token:</span>
-                                    <code className="ml-2 text-sm font-mono bg-gray-200 px-2 py-1 rounded">
-                                        {user.policy.token}
-                                    </code>
-                                </div>
-                                <button
-                                    onClick={() => copyToken(user.policy.token, user.policy.userId)}
-                                    className="ml-4 px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
-                                >
-                                    {copiedToken === user.policy.userId ? '✓ Copied!' : '📋 Copy'}
-                                </button>
-                            </div>
-                        </div>
-
-                        {editingUser && editingUser.userId === user.policy.userId ? (
-                            <div className="space-y-4">
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Allowed Tiers</label>
-                                    <div className="space-x-4">
-                                        <label className="inline-flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={editingUser.allowedTiers.includes('cheap')}
-                                                onChange={(e) => {
-                                                    const tiers = e.target.checked
-                                                        ? [...editingUser.allowedTiers, 'cheap']
-                                                        : editingUser.allowedTiers.filter(t => t !== 'cheap');
-                                                    setEditingUser({ ...editingUser, allowedTiers: tiers });
-                                                }}
-                                                className="mr-2"
-                                            />
-                                            Cheap
-                                        </label>
-                                        <label className="inline-flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={editingUser.allowedTiers.includes('premium')}
-                                                onChange={(e) => {
-                                                    const tiers = e.target.checked
-                                                        ? [...editingUser.allowedTiers, 'premium']
-                                                        : editingUser.allowedTiers.filter(t => t !== 'premium');
-                                                    setEditingUser({ ...editingUser, allowedTiers: tiers });
-                                                }}
-                                                className="mr-2"
-                                            />
-                                            Premium
-                                        </label>
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                                        Allowed Tiers
+                                    </label>
+                                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                        {['cheap', 'premium', 'qwen'].map(tier => (
+                                            <label key={tier} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={editingUser.allowedTiers.includes(tier)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setEditingUser({ ...editingUser, allowedTiers: [...editingUser.allowedTiers, tier] });
+                                                        } else {
+                                                            setEditingUser({ ...editingUser, allowedTiers: editingUser.allowedTiers.filter(t => t !== tier) });
+                                                        }
+                                                    }}
+                                                    style={{ width: 'auto' }}
+                                                />
+                                                <span className={`badge badge-${tier}`}>{tier}</span>
+                                            </label>
+                                        ))}
                                     </div>
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium mb-2">Default Tier</label>
+                                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                                        Default Tier
+                                    </label>
                                     <select
                                         value={editingUser.defaultTier}
                                         onChange={(e) => setEditingUser({ ...editingUser, defaultTier: e.target.value })}
-                                        className="w-full px-3 py-2 border rounded-md"
                                     >
+                                        <option value="auto">Auto</option>
                                         <option value="cheap">Cheap</option>
                                         <option value="premium">Premium</option>
-                                        <option value="auto">Auto</option>
+                                        <option value="qwen">Qwen</option>
                                     </select>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-2">Daily Token Limit (Cheap)</label>
-                                        <input
-                                            type="number"
-                                            value={editingUser.dailyTokenLimit.cheap}
-                                            onChange={(e) => setEditingUser({
-                                                ...editingUser,
-                                                dailyTokenLimit: { ...editingUser.dailyTokenLimit, cheap: parseInt(e.target.value) }
-                                            })}
-                                            className="w-full px-3 py-2 border rounded-md"
-                                        />
+                                {/* Limits for each tier */}
+                                {['cheap', 'premium', 'qwen'].map(tier => (
+                                    <div key={tier} style={{ background: 'var(--bg-surface)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                                        <h3 className={`badge badge-${tier}`} style={{ marginBottom: '1rem' }}>{tier} Limits</h3>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '0.25rem' }}>Daily Tokens</label>
+                                                <input
+                                                    type="number"
+                                                    value={editingUser.dailyTokenLimit[tier]}
+                                                    onChange={(e) => setEditingUser({
+                                                        ...editingUser,
+                                                        dailyTokenLimit: { ...editingUser.dailyTokenLimit, [tier]: parseInt(e.target.value) || 0 }
+                                                    })}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '0.25rem' }}>Monthly Tokens</label>
+                                                <input
+                                                    type="number"
+                                                    value={editingUser.monthlyTokenLimit[tier]}
+                                                    onChange={(e) => setEditingUser({
+                                                        ...editingUser,
+                                                        monthlyTokenLimit: { ...editingUser.monthlyTokenLimit, [tier]: parseInt(e.target.value) || 0 }
+                                                    })}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '0.25rem' }}>Daily Requests</label>
+                                                <input
+                                                    type="number"
+                                                    value={editingUser.dailyRequestLimit[tier]}
+                                                    onChange={(e) => setEditingUser({
+                                                        ...editingUser,
+                                                        dailyRequestLimit: { ...editingUser.dailyRequestLimit, [tier]: parseInt(e.target.value) || 0 }
+                                                    })}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '0.25rem' }}>Monthly Requests</label>
+                                                <input
+                                                    type="number"
+                                                    value={editingUser.monthlyRequestLimit[tier]}
+                                                    onChange={(e) => setEditingUser({
+                                                        ...editingUser,
+                                                        monthlyRequestLimit: { ...editingUser.monthlyRequestLimit, [tier]: parseInt(e.target.value) || 0 }
+                                                    })}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-2">Daily Token Limit (Premium)</label>
-                                        <input
-                                            type="number"
-                                            value={editingUser.dailyTokenLimit.premium}
-                                            onChange={(e) => setEditingUser({
-                                                ...editingUser,
-                                                dailyTokenLimit: { ...editingUser.dailyTokenLimit, premium: parseInt(e.target.value) }
-                                            })}
-                                            className="w-full px-3 py-2 border rounded-md"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-2">Monthly Token Limit (Cheap)</label>
-                                        <input
-                                            type="number"
-                                            value={editingUser.monthlyTokenLimit.cheap}
-                                            onChange={(e) => setEditingUser({
-                                                ...editingUser,
-                                                monthlyTokenLimit: { ...editingUser.monthlyTokenLimit, cheap: parseInt(e.target.value) }
-                                            })}
-                                            className="w-full px-3 py-2 border rounded-md"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-2">Monthly Token Limit (Premium)</label>
-                                        <input
-                                            type="number"
-                                            value={editingUser.monthlyTokenLimit.premium}
-                                            onChange={(e) => setEditingUser({
-                                                ...editingUser,
-                                                monthlyTokenLimit: { ...editingUser.monthlyTokenLimit, premium: parseInt(e.target.value) }
-                                            })}
-                                            className="w-full px-3 py-2 border rounded-md"
-                                        />
-                                    </div>
-                                </div>
+                                ))}
 
-                                <div className="flex space-x-4">
-                                    <button
-                                        onClick={handleSave}
-                                        className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                                    >
-                                        Save
-                                    </button>
+                                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
                                     <button
                                         onClick={() => setEditingUser(null)}
-                                        className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+                                        className="btn btn-secondary"
                                     >
                                         Cancel
                                     </button>
+                                    <button
+                                        onClick={handleSave}
+                                        className="btn btn-primary"
+                                    >
+                                        Save Changes
+                                    </button>
                                 </div>
                             </div>
-                        ) : (
-                            <div className="space-y-4">
-                                <div>
-                                    <span className="font-medium">Allowed Tiers:</span> {user.policy.allowedTiers.join(', ')}
-                                    <span className="ml-4 font-medium">Default:</span> {user.policy.defaultTier}
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <h3 className="font-semibold mb-2">Daily Cheap Tokens</h3>
-                                        <ProgressBar
-                                            current={user.usage.day.cheap.totalTokens}
-                                            limit={user.policy.dailyTokenLimit.cheap}
-                                        />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-semibold mb-2">Daily Premium Tokens</h3>
-                                        <ProgressBar
-                                            current={user.usage.day.premium.totalTokens}
-                                            limit={user.policy.dailyTokenLimit.premium}
-                                        />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-semibold mb-2">Monthly Cheap Tokens</h3>
-                                        <ProgressBar
-                                            current={user.usage.month.cheap.totalTokens}
-                                            limit={user.policy.monthlyTokenLimit.cheap}
-                                        />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-semibold mb-2">Monthly Premium Tokens</h3>
-                                        <ProgressBar
-                                            current={user.usage.month.premium.totalTokens}
-                                            limit={user.policy.monthlyTokenLimit.premium}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        </div>
                     </div>
-                ))}
+                )}
+
+                {/* Users Table */}
+                <div className="glass-card" style={{ padding: '0', overflow: 'hidden' }} className="animate-fade-in">
+                    <div style={{ overflowX: 'auto' }}>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>User ID</th>
+                                    <th>Tiers</th>
+                                    <th>Default</th>
+                                    <th>Token</th>
+                                    <th>Daily Usage</th>
+                                    <th>Month Usage</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {users.map((user) => (
+                                    <tr key={user.policy.userId}>
+                                        <td style={{ fontWeight: '600', color: 'var(--primary)' }}>
+                                            {user.policy.userId}
+                                        </td>
+                                        <td>
+                                            <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                                                {user.policy.allowedTiers.map(tier => (
+                                                    <span key={tier} className={`badge badge-${tier}`}>{tier}</span>
+                                                ))}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span className={`badge badge-${user.policy.defaultTier === 'auto' ? 'success' : user.policy.defaultTier}`}>
+                                                {user.policy.defaultTier}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button
+                                                onClick={() => copyToken(user.policy.token)}
+                                                style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', borderRadius: '4px', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                                            >
+                                                Copy
+                                            </button>
+                                        </td>
+                                        <td>
+                                            <div style={{ fontSize: '0.875rem' }}>
+                                                {((user.usage.day.cheap?.totalTokens || 0) + (user.usage.day.premium?.totalTokens || 0) + (user.usage.day.qwen?.totalTokens || 0)).toLocaleString()}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style={{ fontSize: '0.875rem' }}>
+                                                {((user.usage.month.cheap?.totalTokens || 0) + (user.usage.month.premium?.totalTokens || 0) + (user.usage.month.qwen?.totalTokens || 0)).toLocaleString()}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                <button
+                                                    onClick={() => handleEdit(user)}
+                                                    className="btn btn-secondary"
+                                                    style={{ padding: '0.5rem 1rem', fontSize: '0.75rem' }}
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(user.policy.userId)}
+                                                    className="btn btn-danger"
+                                                    style={{ padding: '0.5rem 1rem', fontSize: '0.75rem' }}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     );

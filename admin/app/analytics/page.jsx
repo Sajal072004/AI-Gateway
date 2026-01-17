@@ -10,6 +10,7 @@ export default function AnalyticsPage() {
     const [dateRange, setDateRange] = useState('today');
     const [selectedUser, setSelectedUser] = useState('all');
     const [selectedTier, setSelectedTier] = useState('all');
+    const [selectedStatus, setSelectedStatus] = useState('all');
 
     useEffect(() => {
         fetchData();
@@ -32,10 +33,11 @@ export default function AnalyticsPage() {
         }
     };
 
-    // Filter logs based on selections
+    // Filter logs
     const filteredLogs = logs.filter(log => {
         if (selectedUser !== 'all' && log.userId !== selectedUser) return false;
         if (selectedTier !== 'all' && log.tierUsed !== selectedTier) return false;
+        if (selectedStatus !== 'all' && log.status !== selectedStatus) return false;
 
         const logDate = new Date(log.ts);
         const now = new Date();
@@ -51,94 +53,98 @@ export default function AnalyticsPage() {
         return true;
     });
 
-    // Calculate statistics
+    // Calculate stats
     const stats = {
-        totalRequests: filteredLogs.length,
-        successfulRequests: filteredLogs.filter(l => l.status === 'ok').length,
-        failedRequests: filteredLogs.filter(l => l.status === 'error' || l.status === 'limited').length,
-        totalTokens: filteredLogs.reduce((sum, l) => sum + (l.totalTokens || 0), 0),
-        cheapRequests: filteredLogs.filter(l => l.tierUsed === 'cheap').length,
-        premiumRequests: filteredLogs.filter(l => l.tierUsed === 'premium').length,
-        avgLatency: filteredLogs.length > 0
-            ? Math.round(filteredLogs.reduce((sum, l) => sum + (l.latencyMs || 0), 0) / filteredLogs.length)
-            : 0,
+        total: filteredLogs.length,
+        success: filteredLogs.filter(l => l.status === 'ok').length,
+        errors: filteredLogs.filter(l => l.status === 'error').length,
+        totalTokens: filteredLogs.reduce((sum, l) => sum + (l.usage?.totalTokens || 0), 0),
+        byTier: {
+            cheap: filteredLogs.filter(l => l.tierUsed === 'cheap').length,
+            premium: filteredLogs.filter(l => l.tierUsed === 'premium').length,
+            qwen: filteredLogs.filter(l => l.tierUsed === 'qwen').length,
+        }
     };
-
-    // Per-user breakdown
-    const userBreakdown = {};
-    filteredLogs.forEach(log => {
-        if (!userBreakdown[log.userId]) {
-            userBreakdown[log.userId] = {
-                requests: 0,
-                tokens: 0,
-                cheap: 0,
-                premium: 0,
-                errors: 0,
-            };
-        }
-        userBreakdown[log.userId].requests++;
-        userBreakdown[log.userId].tokens += log.totalTokens || 0;
-        if (log.tierUsed === 'cheap') userBreakdown[log.userId].cheap++;
-        if (log.tierUsed === 'premium') userBreakdown[log.userId].premium++;
-        if (log.status === 'error' || log.status === 'limited') userBreakdown[log.userId].errors++;
-    });
-
-    // Hourly breakdown for today
-    const hourlyData = Array(24).fill(0).map((_, hour) => {
-        const count = filteredLogs.filter(log => {
-            const logHour = new Date(log.ts).getHours();
-            return logHour === hour;
-        }).length;
-        return { hour, count };
-    });
-
-    // Model breakdown
-    const modelBreakdown = {};
-    filteredLogs.forEach(log => {
-        const model = log.model || 'unknown';
-        if (!modelBreakdown[model]) {
-            modelBreakdown[model] = { count: 0, tokens: 0 };
-        }
-        modelBreakdown[model].count++;
-        modelBreakdown[model].tokens += log.totalTokens || 0;
-    });
-
-    // Routing reason breakdown
-    const routingBreakdown = {};
-    filteredLogs.forEach(log => {
-        const reason = log.routingReason || 'unknown';
-        if (!routingBreakdown[reason]) routingBreakdown[reason] = 0;
-        routingBreakdown[reason]++;
-    });
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-100">
+            <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
                 <Nav />
-                <div className="container mx-auto px-4 py-8">
-                    <div className="text-center">Loading analytics...</div>
+                <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+                    <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }} className="animate-pulse">
+                        Loading analytics...
+                    </div>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-100">
+        <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
             <Nav />
-            <div className="container mx-auto px-4 py-8">
-                <h1 className="text-3xl font-bold mb-8">📊 Advanced Analytics</h1>
+            <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+                {/* Header */}
+                <div style={{ marginBottom: '2rem' }}>
+                    <h1 style={{ fontSize: '2.5rem', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                        Analytics
+                    </h1>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                        Request logs and usage insights
+                    </p>
+                </div>
+
+                {/* Stats Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }} className="animate-fade-in">
+                    <div className="glass-card" style={{ padding: '1.5rem' }}>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Total Requests</p>
+                        <p style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--text-primary)' }}>{stats.total}</p>
+                    </div>
+                    <div className="glass-card" style={{ padding: '1.5rem', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%)' }}>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Success</p>
+                        <p style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--success)' }}>{stats.success}</p>
+                    </div>
+                    <div className="glass-card" style={{ padding: '1.5rem', background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%)' }}>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Errors</p>
+                        <p style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--error)' }}>{stats.errors}</p>
+                    </div>
+                    <div className="glass-card" style={{ padding: '1.5rem' }}>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Total Tokens</p>
+                        <p style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--text-primary)' }}>{stats.totalTokens.toLocaleString()}</p>
+                    </div>
+                </div>
+
+                {/* Tier Distribution */}
+                <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem' }} className="animate-fade-in">
+                    <h3 style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '1rem' }}>
+                        Requests by Tier
+                    </h3>
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span className="badge badge-cheap">Cheap</span>
+                            <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{stats.byTier.cheap}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span className="badge badge-premium">Premium</span>
+                            <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{stats.byTier.premium}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span className="badge badge-qwen">Qwen</span>
+                            <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{stats.byTier.qwen}</span>
+                        </div>
+                    </div>
+                </div>
 
                 {/* Filters */}
-                <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                    <h2 className="text-xl font-bold mb-4">Filters</h2>
-                    <div className="grid grid-cols-3 gap-4">
+                <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem' }} className="animate-fade-in">
+                    <h3 style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '1rem' }}>
+                        Filters
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                         <div>
-                            <label className="block text-sm font-medium mb-2">Date Range</label>
-                            <select
-                                value={dateRange}
-                                onChange={(e) => setDateRange(e.target.value)}
-                                className="w-full px-3 py-2 border rounded-md"
-                            >
+                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+                                Date Range
+                            </label>
+                            <select value={dateRange} onChange={(e) => setDateRange(e.target.value)}>
                                 <option value="today">Today</option>
                                 <option value="week">Last 7 Days</option>
                                 <option value="month">This Month</option>
@@ -146,231 +152,100 @@ export default function AnalyticsPage() {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-2">User</label>
-                            <select
-                                value={selectedUser}
-                                onChange={(e) => setSelectedUser(e.target.value)}
-                                className="w-full px-3 py-2 border rounded-md"
-                            >
+                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+                                User
+                            </label>
+                            <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)}>
                                 <option value="all">All Users</option>
-                                {users.map(u => (
-                                    <option key={u.policy.userId} value={u.policy.userId}>
-                                        {u.policy.userId}
+                                {users.map(user => (
+                                    <option key={user.policy.userId} value={user.policy.userId}>
+                                        {user.policy.userId}
                                     </option>
                                 ))}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-2">Tier</label>
-                            <select
-                                value={selectedTier}
-                                onChange={(e) => setSelectedTier(e.target.value)}
-                                className="w-full px-3 py-2 border rounded-md"
-                            >
+                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+                                Tier
+                            </label>
+                            <select value={selectedTier} onChange={(e) => setSelectedTier(e.target.value)}>
                                 <option value="all">All Tiers</option>
                                 <option value="cheap">Cheap</option>
                                 <option value="premium">Premium</option>
+                                <option value="qwen">Qwen</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+                                Status
+                            </label>
+                            <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}>
+                                <option value="all">All Status</option>
+                                <option value="ok">Success</option>
+                                <option value="error">Error</option>
                             </select>
                         </div>
                     </div>
                 </div>
 
-                {/* Overview Stats */}
-                <div className="grid grid-cols-4 gap-4 mb-6">
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <div className="text-sm text-gray-600">Total Requests</div>
-                        <div className="text-3xl font-bold text-blue-600">{stats.totalRequests}</div>
-                        <div className="text-xs text-gray-500 mt-1">
-                            ✓ {stats.successfulRequests} | ✗ {stats.failedRequests}
-                        </div>
+                {/* Logs Table */}
+                <div className="glass-card" style={{ padding: '0', overflow: 'hidden' }} className="animate-fade-in">
+                    <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-subtle)' }}>
+                        <h3 style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-primary)' }}>
+                            Request Logs ({filteredLogs.length})
+                        </h3>
                     </div>
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <div className="text-sm text-gray-600">Total Tokens</div>
-                        <div className="text-3xl font-bold text-green-600">
-                            {stats.totalTokens.toLocaleString()}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                            Across all requests
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <div className="text-sm text-gray-600">Tier Distribution</div>
-                        <div className="text-lg font-bold">
-                            <span className="text-blue-600">{stats.cheapRequests}</span> cheap |{' '}
-                            <span className="text-purple-600">{stats.premiumRequests}</span> premium
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                            {stats.totalRequests > 0
-                                ? `${Math.round((stats.premiumRequests / stats.totalRequests) * 100)}% premium`
-                                : '0% premium'}
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <div className="text-sm text-gray-600">Avg Latency</div>
-                        <div className="text-3xl font-bold text-orange-600">{stats.avgLatency}ms</div>
-                        <div className="text-xs text-gray-500 mt-1">
-                            Response time
-                        </div>
-                    </div>
-                </div>
-
-                {/* Hourly Activity Chart */}
-                <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                    <h2 className="text-xl font-bold mb-4">📈 Hourly Activity</h2>
-                    <div className="flex items-end justify-between h-64 gap-1">
-                        {hourlyData.map(({ hour, count }) => {
-                            const maxCount = Math.max(...hourlyData.map(d => d.count), 1);
-                            const height = (count / maxCount) * 100;
-                            return (
-                                <div key={hour} className="flex-1 flex flex-col items-center">
-                                    <div
-                                        className="w-full bg-blue-500 rounded-t hover:bg-blue-600 transition-all"
-                                        style={{ height: `${height}%` }}
-                                        title={`${hour}:00 - ${count} requests`}
-                                    />
-                                    <div className="text-xs text-gray-600 mt-1">{hour}</div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* Per-User Breakdown */}
-                <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                    <h2 className="text-xl font-bold mb-4">👥 Per-User Breakdown</h2>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b">
-                                    <th className="text-left py-2 px-4">User</th>
-                                    <th className="text-right py-2 px-4">Requests</th>
-                                    <th className="text-right py-2 px-4">Tokens</th>
-                                    <th className="text-right py-2 px-4">Cheap</th>
-                                    <th className="text-right py-2 px-4">Premium</th>
-                                    <th className="text-right py-2 px-4">Errors</th>
+                    <div style={{ overflowX: 'auto', maxHeight: '600px', overflowY: 'auto' }}>
+                        <table>
+                            <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>User</th>
+                                    <th>Tier</th>
+                                    <th>Status</th>
+                                    <th>Tokens</th>
+                                    <th>Model</th>
+                                    <th>Duration</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {Object.entries(userBreakdown)
-                                    .sort((a, b) => b[1].requests - a[1].requests)
-                                    .map(([userId, data]) => (
-                                        <tr key={userId} className="border-b hover:bg-gray-50">
-                                            <td className="py-2 px-4 font-medium">{userId}</td>
-                                            <td className="py-2 px-4 text-right">{data.requests}</td>
-                                            <td className="py-2 px-4 text-right">{data.tokens.toLocaleString()}</td>
-                                            <td className="py-2 px-4 text-right text-blue-600">{data.cheap}</td>
-                                            <td className="py-2 px-4 text-right text-purple-600">{data.premium}</td>
-                                            <td className="py-2 px-4 text-right text-red-600">{data.errors}</td>
-                                        </tr>
-                                    ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* Model Breakdown */}
-                <div className="grid grid-cols-2 gap-6 mb-6">
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-xl font-bold mb-4">🤖 Model Usage</h2>
-                        <div className="space-y-3">
-                            {Object.entries(modelBreakdown)
-                                .sort((a, b) => b[1].count - a[1].count)
-                                .map(([model, data]) => (
-                                    <div key={model}>
-                                        <div className="flex justify-between text-sm mb-1">
-                                            <span className="font-medium">{model}</span>
-                                            <span>{data.count} requests</span>
-                                        </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-2">
-                                            <div
-                                                className="bg-blue-600 h-2 rounded-full"
-                                                style={{
-                                                    width: `${(data.count / stats.totalRequests) * 100}%`
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="text-xs text-gray-500 mt-1">
-                                            {data.tokens.toLocaleString()} tokens
-                                        </div>
-                                    </div>
-                                ))}
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                        <h2 className="text-xl font-bold mb-4">🎯 Routing Reasons</h2>
-                        <div className="space-y-3">
-                            {Object.entries(routingBreakdown)
-                                .sort((a, b) => b[1] - a[1])
-                                .map(([reason, count]) => (
-                                    <div key={reason}>
-                                        <div className="flex justify-between text-sm mb-1">
-                                            <span className="font-medium capitalize">{reason.replace(/_/g, ' ')}</span>
-                                            <span>{count} requests</span>
-                                        </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-2">
-                                            <div
-                                                className="bg-green-600 h-2 rounded-full"
-                                                style={{
-                                                    width: `${(count / stats.totalRequests) * 100}%`
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="text-xs text-gray-500 mt-1">
-                                            {Math.round((count / stats.totalRequests) * 100)}% of total
-                                        </div>
-                                    </div>
-                                ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Recent Requests */}
-                <div className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-bold mb-4">📝 Recent Requests</h2>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b">
-                                    <th className="text-left py-2 px-2">Time</th>
-                                    <th className="text-left py-2 px-2">User</th>
-                                    <th className="text-left py-2 px-2">Tier</th>
-                                    <th className="text-left py-2 px-2">Model</th>
-                                    <th className="text-right py-2 px-2">Tokens</th>
-                                    <th className="text-right py-2 px-2">Latency</th>
-                                    <th className="text-left py-2 px-2">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredLogs.slice(0, 50).map((log) => (
-                                    <tr key={log.requestId} className="border-b hover:bg-gray-50">
-                                        <td className="py-2 px-2">
-                                            {new Date(log.ts).toLocaleTimeString()}
-                                        </td>
-                                        <td className="py-2 px-2 font-medium">{log.userId}</td>
-                                        <td className="py-2 px-2">
-                                            <span className={`px-2 py-1 rounded text-xs ${log.tierUsed === 'cheap'
-                                                ? 'bg-blue-100 text-blue-800'
-                                                : 'bg-purple-100 text-purple-800'
-                                                }`}>
-                                                {log.tierUsed}
-                                            </span>
-                                        </td>
-                                        <td className="py-2 px-2 text-xs">{log.model}</td>
-                                        <td className="py-2 px-2 text-right">
-                                            {log.totalTokens || 0}
-                                        </td>
-                                        <td className="py-2 px-2 text-right">{log.latencyMs}ms</td>
-                                        <td className="py-2 px-2">
-                                            <span className={`px-2 py-1 rounded text-xs ${log.status === 'ok'
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-red-100 text-red-800'
-                                                }`}>
-                                                {log.status}
-                                            </span>
+                                {filteredLogs.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="7" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-tertiary)' }}>
+                                            No logs found for the selected filters
                                         </td>
                                     </tr>
-                                ))}
+                                ) : (
+                                    filteredLogs.map((log, idx) => (
+                                        <tr key={idx}>
+                                            <td style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
+                                                {new Date(log.ts).toLocaleString()}
+                                            </td>
+                                            <td style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                                                {log.userId}
+                                            </td>
+                                            <td>
+                                                <span className={`badge badge-${log.tierUsed}`}>
+                                                    {log.tierUsed}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span className={`badge badge-${log.status === 'ok' ? 'success' : 'error'}`}>
+                                                    {log.status}
+                                                </span>
+                                            </td>
+                                            <td style={{ fontSize: '0.875rem', fontWeight: '600' }}>
+                                                {log.usage?.totalTokens?.toLocaleString() || 0}
+                                            </td>
+                                            <td style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
+                                                {log.model || 'N/A'}
+                                            </td>
+                                            <td style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
+                                                {log.durationMs ? `${log.durationMs}ms` : 'N/A'}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
