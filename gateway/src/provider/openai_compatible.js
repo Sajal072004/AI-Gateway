@@ -25,25 +25,26 @@ export async function callOpenAICompatible(messages, model) {
         let body;
 
         if (isVertex) {
-            // Raw Vertex AI Prediction format
-            // Qwen usually expects OpenAI-like messages inside 'instances' or 'inputs' depending on the serving container
-            // Standard vLLM on Vertex: { instances: [ { prompt: ... } ] } or { messages: ... } if adapted?
-            // Let's assume the standard Vertex 'instances' format but with OpenAI messages inside if supported, 
-            // OR we fallback to formatting a prompt.
-            // MOST Vertex one-click deploys for LLMs wrap vLLM which exposes /v1. 
-            // BUT if the user has the :predict URL, it's the raw Google wrapper.
-            // Let's try standard Vertex format:
+            // Raw Vertex AI Prediction format requires 'prompt' field for this container
+            // We need to format messages into a single string (Qwen ChatML format)
+            const prompt = messages.map(m => {
+                let role = m.role;
+                if (role === 'user') role = 'user';
+                if (role === 'assistant') role = 'assistant';
+                if (role === 'system') role = 'system';
+                return `<|im_start|>${role}\n${m.content}<|im_end|>`;
+            }).join('\n') + '\n<|im_start|>assistant\n';
+
             body = {
                 instances: [
                     {
-                        messages: messages, // Try passing messages directly, many containers support this
-                        // If not, we might need: prompt: messages[messages.length-1].content 
+                        prompt: prompt,
+                        max_tokens: 2048,
+                        temperature: 0.7,
+                        top_p: 0.9,
+                        top_k: 40
                     }
                 ],
-                parameters: {
-                    max_tokens: 2048,
-                    temperature: 0.7
-                }
             };
         } else {
             // Standard OpenAI format
