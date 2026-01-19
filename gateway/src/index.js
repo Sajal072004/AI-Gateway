@@ -4,6 +4,7 @@ import { connectDatabase, closeDatabase } from './db/mongo.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerOpenAIRoutes } from './routes/openai.js';
+import { startKeepAliveCron } from './cron/keepAlive.js';
 
 const fastify = Fastify({
     logger: {
@@ -34,6 +35,9 @@ fastify.get('/health', async (request, reply) => {
 try {
     await fastify.listen({ port: config.port, host: '0.0.0.0' });
     console.log(`🚀 Gateway server running on http://localhost:${config.port}`);
+
+    // Start keep-alive cron job to prevent Render free tier from sleeping
+    startKeepAliveCron();
 } catch (err) {
     fastify.log.error(err);
     process.exit(1);
